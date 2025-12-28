@@ -69,12 +69,35 @@
     });
 
     // Сообщаем родительскому окну, что iframe готов
-    window.parent.postMessage({
-      type: 'iframe-ready'
-    }, '*');
+    // Пробуем отправить несколько раз с задержкой, на случай если родитель еще не готов
+    function sendReadyMessage() {
+      const message = {
+        type: 'iframe-ready',
+        timestamp: Date.now(),
+        origin: window.location.origin
+      };
+      
+      console.log('Sending iframe-ready message:', message);
+      console.log('Parent window:', window.parent);
+      console.log('Parent origin:', window.parent ? window.parent.location.origin : 'unknown');
+      
+      try {
+        window.parent.postMessage(message, '*');
+        console.log('✓ iframe-ready message sent successfully');
+      } catch (error) {
+        console.error('✗ Error sending iframe-ready message:', error);
+      }
+    }
     
-    console.log('Iframe proxy ready, sent iframe-ready message');
+    // Отправляем сразу
+    sendReadyMessage();
+    
+    // Отправляем еще раз через небольшую задержку
+    setTimeout(sendReadyMessage, 100);
+    setTimeout(sendReadyMessage, 500);
+    setTimeout(sendReadyMessage, 1000);
+    
+    console.log('Iframe proxy ready, sent iframe-ready message (multiple times)');
   </script>
 </body>
 </html>
-
