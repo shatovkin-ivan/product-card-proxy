@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Figma Plugin CORS Proxy</title>
+</head>
+<body>
+  <script>
+    // Этот файл должен быть размещен на том же домене, что и API
+    // https://bff.vseinstrumenti.ru/iframe-proxy.html
+    // 
+    // Если файл размещен на том же домене, что и API, запросы к API
+    // не будут блокироваться CORS, так как origin совпадает (same-origin)
+
+    console.log('Iframe proxy loaded from:', window.location.origin);
+
+    // Слушаем сообщения от родительского окна (Figma плагина)
+    window.addEventListener('message', async (event) => {
+      console.log('Iframe received message:', event.data, 'from origin:', event.origin);
+      
+      // Проверяем origin для безопасности (опционально)
+      // if (event.origin !== 'https://www.figma.com') return;
+
+      const { type, requestId, url } = event.data;
+
+      if (type === 'fetch-request') {
+        console.log('Iframe processing fetch-request:', { requestId, url });
+        try {
+          console.log('Iframe received fetch request:', url);
+          
+          // Делаем запрос из iframe с реальным origin (same-origin для API)
+          const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+              'Accept': 'application/json',
+            }
+          });
+
+          console.log('Iframe fetch response status:', response.status);
+
+          if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`HTTP error! status: ${response.status}, message: ${errorText}`);
+          }
+
+          const data = await response.json();
+          console.log('Iframe fetch success, data received');
+
+          // Отправляем результат обратно родительскому окну
+          window.parent.postMessage({
+            type: 'fetch-response',
+            requestId: requestId,
+            success: true,
+            data: data,
+            status: response.status
+          }, '*'); // В production замените '*' на конкретный origin
+
+        } catch (error) {
+          console.error('Iframe fetch error:', error);
+          // Отправляем ошибку обратно
+          window.parent.postMessage({
+            type: 'fetch-response',
+            requestId: requestId,
+            success: false,
+            error: error.message
+          }, '*');
+        }
+      }
+    });
+
+    // Сообщаем родительскому окну, что iframe готов
+    window.parent.postMessage({
+      type: 'iframe-ready'
+    }, '*');
+    
+    console.log('Iframe proxy ready, sent iframe-ready message');
+  </script>
+</body>
+</html>
+
